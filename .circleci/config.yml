@@ -6,7 +6,10 @@ jobs:
     working_directory: /go/src/github.com/fresh8/domsub
     steps:
       - checkout
-      - run: go build -v ./...
+      - run:
+          name: "Go Build"
+          command: |
+            go build -v ./...
 
 workflows:
   version: 2
