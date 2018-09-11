@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"log"
+	"os"
 
 	"cloud.google.com/go/pubsub"
 	"github.com/fresh8/domsub/logging"
