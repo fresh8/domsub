@@ -9,7 +9,7 @@ jobs:
       - run:
           name: "Go Build"
           command: |
-            go build -v ./...
+            make -j2
 
 workflows:
   version: 2
