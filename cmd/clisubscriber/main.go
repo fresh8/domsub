@@ -16,11 +16,22 @@ import (
 
 type msgchan chan *pubsub.Message
 
-func SubscribeMain(projectID, topicName, subName string, waitToStart, waitToAck, waitToStop time.Duration, dieHard bool) error {
+type waitTime struct {
+	ack   int64
+	start int64
+	stop  int64
+}
+
+func (w waitTime) Ack() time.Duration   { return time.Duration(w.ack) * time.Second }
+func (w waitTime) Start() time.Duration { return time.Duration(w.start) * time.Second }
+func (w waitTime) Stop() time.Duration  { return time.Duration(w.stop) * time.Second }
+
+func SubscribeMain(projectID, topicName, subName string, wait waitTime, dieHard bool) error {
 	uid, err := uuid()
 	if err != nil {
 		return err
 	}
+	log.Printf("starting subscriber %v\n", uid)
 	log.SetPrefix("[" + uid + "] ")
 
 	log.Println("subscribing to", subName, projectID, topicName)
@@ -32,18 +43,24 @@ func SubscribeMain(projectID, topicName, subName string, waitToStart, waitToAck,
 	}
 
 	sub := pubsubClient.Subscription(subName)
+	sub.ReceiveSettings.MaxExtension = 2 * time.Minute
+
+	log.Printf("sleep before starting for %v\n", wait.Start())
+	time.Sleep(wait.Start())
+	cctx, cancel := context.WithCancel(ctx)
 
 	ch := make(msgchan)
 	var wg sync.WaitGroup
-
-	time.Sleep(waitToStart)
-	cctx, cancel := context.WithCancel(ctx)
-	wg.Add(1)
+	wg.Add(2)
 	go receiveMessages(cctx, sub, &wg, ch)
-	wg.Add(1)
-	go ackMessages(&wg, ch, false, waitToAck)
+	go ackMessages(&wg, ch, false, wait.Ack())
 
-	time.Sleep(waitToStop)
+	log.Printf("sleep before stop for %v\n", wait.Stop())
+	time.Sleep(wait.Stop())
+	if dieHard {
+		log.Fatal("Yippee ki-yay")
+	}
+
 	// cancel causes Receive to exit once all received messages are Ack'ed or Nack'ed.
 	log.Println("canceling context")
 	cancel()
@@ -53,6 +70,7 @@ func SubscribeMain(projectID, topicName, subName string, waitToStart, waitToAck,
 }
 
 func ackMessages(wg *sync.WaitGroup, ch msgchan, isNack bool, waitToAck time.Duration) {
+	log.Printf("sleep before ack for %v\n", waitToAck)
 	time.Sleep(waitToAck)
 	log.Println("entering ack loop")
 	for {
@@ -92,18 +110,22 @@ func receiveMessages(ctx context.Context, sub *pubsub.Subscription, wg *sync.Wai
 }
 
 func main() {
+	var dieHard bool
 	var subName string
 	var topicName string
-	var hardFail bool
+	var waitTimes waitTime
 
+	flag.BoolVar(&dieHard, "fail", false, "hard fail without a clean shutdown")
+	flag.Int64Var(&waitTimes.ack, "ack", 0, "wait to ack in seconds")
+	flag.Int64Var(&waitTimes.start, "start", 0, "wait to ack in seconds")
+	flag.Int64Var(&waitTimes.stop, "stop", 0, "wait to ack in seconds")
 	flag.StringVar(&subName, "sub", "scenario1", "subscription to read messages from")
 	flag.StringVar(&topicName, "topic", "domsub", "topic to read messages from")
-	flag.BoolVar(&hardFail, "fail", false, "hard fail without a clean shutdown")
 	flag.Parse()
 
 	logging.Init()
 
-	err := SubscribeMain("fresh-8-staging", topicName, subName, 1*time.Second, 30*time.Second, 30*time.Second, false)
+	err := SubscribeMain("fresh-8-staging", topicName, subName, waitTimes, dieHard)
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)

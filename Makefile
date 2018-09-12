@@ -10,3 +10,15 @@ subscriber: $(SUB_SRC)
 
 publisher: $(PUB_SRC)
 	go build -v -o publisher ./cmd/clipublisher
+
+.PHONY: drain
+drain: subscriber
+	./subscriber -stop 10 # drain the queue
+
+.PHONY: s1
+s1: subscriber publisher drain
+	./publisher # publish a message
+	./subscriber -start 0 -stop 60 -ack 30 > sub1.log & # subscriber 1 should receive and ack published message
+	./subscriber -start 10 -stop 50 -ack 0 > sub2.log # subscriber 2 should see nothing
+	cat sub1.log sub2.log
+
