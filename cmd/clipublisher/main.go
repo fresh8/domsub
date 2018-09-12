@@ -5,12 +5,13 @@ import (
 	"flag"
 	"log"
 	"os"
+	"time"
 
 	"cloud.google.com/go/pubsub"
 	"github.com/fresh8/domsub/logging"
 )
 
-func PublishMain(projectID, topicName, message string) error {
+func PublishMain(projectID, topicName, subName, message string) error {
 	log.Println("publishing", message, "to", projectID, topicName)
 
 	ctx := context.Background()
@@ -29,6 +30,13 @@ func PublishMain(projectID, topicName, message string) error {
 		if err != nil {
 			return err
 		}
+
+		cfg := pubsub.SubscriptionConfig{
+			Topic:       topic,
+			AckDeadline: 60 * time.Second,
+		}
+
+		pubsubClient.CreateSubscription(ctx, subName, cfg)
 	}
 
 	defer func(t *pubsub.Topic) {
@@ -49,14 +57,16 @@ func PublishMain(projectID, topicName, message string) error {
 func main() {
 	var message string
 	var topicName string
+	var subName string
 
 	flag.StringVar(&message, "message", "hola señor!", "message to publish into the topic")
+	flag.StringVar(&subName, "sub", "scenario", "subscription name")
 	flag.StringVar(&topicName, "topic", "domsub", "topic to publish messages to")
 	flag.Parse()
 
 	logging.Init()
 
-	err := PublishMain("fresh-8-staging", topicName, message)
+	err := PublishMain(os.Getenv("GOOGLE_PROJECT_ID"), topicName, subName, message)
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)

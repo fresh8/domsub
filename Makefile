@@ -26,6 +26,6 @@ s1: subscriber publisher drain
 s2: subscriber publisher drain
 	./publisher # publish a message
 	./subscriber -start 0 -stop 10 -ack 30 -fail true > sub1.log & # subscriber 1 should receive and die
-	./subscriber -start 10 -stop 150 -ack 0 > sub2.log # subscriber 2 should see message and ack after 2m lease
+	./subscriber -start 10 -stop 60 -ack 0 > sub2.log # subscriber 2 should see message and ack after ack deadline has passed
 	cat sub1.log sub2.log
 

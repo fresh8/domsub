@@ -119,13 +119,13 @@ func main() {
 	flag.Int64Var(&waitTimes.ack, "ack", 0, "wait to ack in seconds")
 	flag.Int64Var(&waitTimes.start, "start", 0, "wait to ack in seconds")
 	flag.Int64Var(&waitTimes.stop, "stop", 0, "wait to ack in seconds")
-	flag.StringVar(&subName, "sub", "scenario1", "subscription to read messages from")
+	flag.StringVar(&subName, "sub", "scenario", "subscription to read messages from")
 	flag.StringVar(&topicName, "topic", "domsub", "topic to read messages from")
 	flag.Parse()
 
 	logging.Init()
 
-	err := SubscribeMain("fresh-8-staging", topicName, subName, waitTimes, dieHard)
+	err := SubscribeMain(os.Getenv("GOOGLE_PROJECT_ID"), topicName, subName, waitTimes, dieHard)
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
